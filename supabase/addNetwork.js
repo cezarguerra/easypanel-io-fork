@@ -43,9 +43,26 @@ async function removeDependsOnDb(path) {
   await fs.promises.writeFile(path, document.toString());
 }
 
+async function removeDbService(path) {
+  console.log(`Removing db service from ${path}`);
+
+  const file = await fs.promises.readFile(path, "utf8");
+  const document = yaml.parseDocument(file);
+
+  const services = document.get("services");
+  if (services) {
+    const dbIndex = services.items.findIndex((item) => item.key.value === "db");
+    if (dbIndex !== -1) {
+      services.items.splice(dbIndex, 1);
+    }
+  }
+
+  await fs.promises.writeFile(path, document.toString());
+}
+
 await addNetwork("./code/docker-compose.yml");
 await removeDependsOnDb("./code/docker-compose.yml");
-
+await removeDbService("./code/docker-compose.yml");
 // export default {
 //   addNetwork,
 // };
