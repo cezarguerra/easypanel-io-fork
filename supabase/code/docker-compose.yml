@@ -273,7 +273,7 @@ services:
   #     - ./volumes/storage:/var/lib/storage:z
 
   storage:
-    image: supabase/storage-api:v1.11.13
+    image: supabase/storage-api:v1.22.7
     networks:
       - easypanel
     depends_on:
@@ -346,7 +346,7 @@ services:
 
   meta:
     # container_name: supabase-meta
-    image: supabase/postgres-meta:v0.84.2
+    image: supabase/postgres-meta:v0.88.9
     networks:
       - easypanel
     depends_on:
