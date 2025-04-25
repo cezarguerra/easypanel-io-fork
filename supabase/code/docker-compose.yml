@@ -44,14 +44,14 @@ services:
       - easypanel
     restart: unless-stopped
     healthcheck:
-      test:
-        [
+      test: [
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://localhost:3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})",
+          "fetch('http://studio:3000/api/platform/profile').then((r) => {if
+          (r.status !== 200) throw new Error(r.status)})",
         ]
-      timeout: 5s
+      timeout: 10s
       interval: 5s
       retries: 3
     depends_on:
