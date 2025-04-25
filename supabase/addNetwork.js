@@ -15,7 +15,36 @@ async function addNetwork(path) {
   await fs.promises.writeFile(path, document.toString());
 }
 
+async function removeDependsOnDb(path) {
+  console.log(`Removing db dependency from ${path}`);
+
+  const file = await fs.promises.readFile(path, "utf8");
+  const document = yaml.parseDocument(file);
+
+  document.get("services").items.forEach((item) => {
+    const dependsOn = item.value.get("depends_on");
+    if (dependsOn) {
+      // Create a new depends_on object without the db entry
+      const newDependsOn = {};
+      for (const [key, value] of Object.entries(dependsOn.toJSON())) {
+        if (key !== "db") {
+          newDependsOn[key] = value;
+        }
+      }
+
+      if (Object.keys(newDependsOn).length === 0) {
+        item.value.delete("depends_on");
+      } else {
+        item.value.set("depends_on", document.createNode(newDependsOn));
+      }
+    }
+  });
+
+  await fs.promises.writeFile(path, document.toString());
+}
+
 await addNetwork("./code/docker-compose.yml");
+await removeDependsOnDb("./code/docker-compose.yml");
 
 // export default {
 //   addNetwork,

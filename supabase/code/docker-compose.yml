@@ -8,16 +8,18 @@
 name: supabase
 
 services:
+
   studio:
     image: supabase/studio:2025.04.21-sha-173cc56
     restart: unless-stopped
     healthcheck:
-      test: [
+      test:
+        [
           "CMD",
           "node",
           "-e",
           "fetch('http://studio:3000/api/platform/profile').then((r) => {if
-          (r.status !== 200) throw new Error(r.status)})",
+            (r.status !== 200) throw new Error(r.status)})"
         ]
       timeout: 10s
       interval: 5s
@@ -87,15 +89,12 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:9999/health",
+          "http://localhost:9999/health"
         ]
       timeout: 5s
       interval: 5s
       retries: 3
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
       analytics:
         condition: service_healthy
     environment:
@@ -164,9 +163,6 @@ services:
     image: postgrest/postgrest:v12.2.11
     restart: unless-stopped
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
       analytics:
         condition: service_healthy
     environment:
@@ -177,7 +173,7 @@ services:
       PGRST_DB_USE_LEGACY_GUCS: "false"
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
-    command: ["postgrest"]
+    command: [ "postgrest" ]
     networks:
       - easypanel
 
@@ -186,9 +182,6 @@ services:
     image: supabase/realtime:v2.34.47
     restart: unless-stopped
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
       analytics:
         condition: service_healthy
     healthcheck:
@@ -202,7 +195,7 @@ services:
           "/dev/null",
           "-H",
           "Authorization: Bearer ${ANON_KEY}",
-          "http://localhost:4000/api/tenants/realtime-dev/health",
+          "http://localhost:4000/api/tenants/realtime-dev/health"
         ]
       timeout: 5s
       interval: 5s
@@ -214,7 +207,7 @@ services:
       DB_USER: supabase_admin
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
-      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
       DB_ENC_KEY: supabaserealtime
       API_JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
@@ -241,15 +234,12 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://storage:5000/status",
+          "http://storage:5000/status"
         ]
       timeout: 5s
       interval: 5s
       retries: 3
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
       rest:
         condition: service_started
       imgproxy:
@@ -278,7 +268,7 @@ services:
     volumes:
       - ./volumes/storage:/var/lib/storage:z
     healthcheck:
-      test: ["CMD", "imgproxy", "health"]
+      test: [ "CMD", "imgproxy", "health" ]
       timeout: 5s
       interval: 5s
       retries: 3
@@ -294,9 +284,6 @@ services:
     image: supabase/postgres-meta:v0.88.9
     restart: unless-stopped
     depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
       analytics:
         condition: service_healthy
     environment:
@@ -325,7 +312,7 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function. This PR might help: https://github.com/supabase/cli/pull/786
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
-    command: ["start", "--main-service", "/home/deno/functions/main"]
+    command: [ "start", "--main-service", "/home/deno/functions/main" ]
     networks:
       - easypanel
 
@@ -339,14 +326,10 @@ services:
     #     target: /opt/app/rel/logflare/bin/gcloud.json
     #     read_only: true
     healthcheck:
-      test: ["CMD", "curl", "http://localhost:4000/health"]
+      test: [ "CMD", "curl", "http://localhost:4000/health" ]
       timeout: 5s
       interval: 5s
       retries: 10
-    depends_on:
-      db:
-        # Disable this if you are using an external Postgres database
-        condition: service_healthy
     environment:
       LOGFLARE_NODE_HOST: 127.0.0.1
       DB_USERNAME: supabase_admin
@@ -369,9 +352,58 @@ services:
       # GOOGLE_PROJECT_NUMBER: ${GOOGLE_PROJECT_NUMBER}
 
       # Comment out everything below this point if you are using an external Postgres database
-
     networks:
       - easypanel
+  db:
+    image: supabase/postgres:15.8.1.060
+    restart: unless-stopped
+    volumes:
+      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      # Must be superuser to create event trigger
+      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
+      # Must be superuser to alter reserved role
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      # Initialize the database settings with JWT_SECRET and JWT_EXP
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      # PGDATA directory is persisted between restarts
+      - ./volumes/db/data:/var/lib/postgresql/data:Z
+      # Changes required for internal supabase data such as _analytics
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
+      # Changes required for Analytics support
+      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+      # Changes required for Pooler support
+      - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
+      # Use named volume to persist pgsodium decryption key between restarts
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres", "-h", "localhost" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      vector:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: ${POSTGRES_PORT}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: ${JWT_EXPIRY}
+    command:
+      [
+        "postgres",
+        "-c",
+        "config_file=/etc/postgresql/postgresql.conf",
+        "-c",
+        "log_min_messages=fatal" # prevents Realtime polling queries from appearing in logs
+      ]
+    networks:
+      - easypanel
+
   vector:
     image: timberio/vector:0.28.1-alpine
     restart: unless-stopped
@@ -386,14 +418,14 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://vector:9001/health",
+          "http://vector:9001/health"
         ]
       timeout: 5s
       interval: 5s
       retries: 3
     environment:
       LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
-    command: ["--config", "/etc/vector/vector.yml"]
+    command: [ "--config", "/etc/vector/vector.yml" ]
     security_opt:
       - "label=disable"
     networks:
@@ -414,14 +446,12 @@ services:
           "--head",
           "-o",
           "/dev/null",
-          "http://127.0.0.1:4000/api/health",
+          "http://127.0.0.1:4000/api/health"
         ]
       interval: 10s
       timeout: 5s
       retries: 5
     depends_on:
-      db:
-        condition: service_healthy
       analytics:
         condition: service_healthy
     environment:
@@ -441,18 +471,15 @@ services:
       POOLER_DEFAULT_POOL_SIZE: ${POOLER_DEFAULT_POOL_SIZE}
       POOLER_MAX_CLIENT_CONN: ${POOLER_MAX_CLIENT_CONN}
       POOLER_POOL_MODE: transaction
-    command: [
+    command:
+      [
         "/bin/sh",
         "-c",
-        '/app/bin/migrate && /app/bin/supavisor eval "$$(cat
-        /etc/pooler/pooler.exs)" && /app/bin/server',
+        "/app/bin/migrate && /app/bin/supavisor eval \"$$(cat
+          /etc/pooler/pooler.exs)\" && /app/bin/server"
       ]
     networks:
       - easypanel
 
 volumes:
   db-config:
-
-networks:
-  easypanel:
-    external: true
