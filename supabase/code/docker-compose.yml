@@ -39,7 +39,7 @@ services:
 
   studio:
     # container_name: supabase-studio
-    image: supabase/studio:2025.04.21-sha-173cc56
+    image: supabase/studio:2025.06.30-sha-6f5982d
     networks:
       - easypanel
     restart: unless-stopped
@@ -79,7 +79,7 @@ services:
 
   auth:
     # container_name: supabase-auth
-    image: supabase/gotrue:v2.171.0
+    image: supabase/gotrue:v2.176.1
     networks:
       - easypanel
     depends_on:
@@ -160,7 +160,7 @@ services:
 
   rest:
     # container_name: supabase-rest
-    image: postgrest/postgrest:v12.2.11
+    image: postgrest/postgrest:v12.2.12
     networks:
       - easypanel
     depends_on:
@@ -273,7 +273,7 @@ services:
   #     - ./volumes/storage:/var/lib/storage:z
 
   storage:
-    image: supabase/storage-api:v1.22.7
+    image: supabase/storage-api:v1.24.7
     networks:
       - easypanel
     depends_on:
@@ -502,7 +502,7 @@ services:
     command: ["--config", "etc/vector/vector.yml"]
 
   supavisor:
-    image: supabase/supavisor:2.5.1
+    image: supabase/supavisor:2.5.6
     restart: unless-stopped
     volumes:
       - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
